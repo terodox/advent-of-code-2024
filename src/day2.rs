@@ -192,12 +192,6 @@ mod tests_part_2 {
     let bad_report = Report { levels: vec![18, 5, 4, 3, 22, 2] };
     assert!(bad_report.is_safe_part_2() == false);
   }
-
-  #[test]
-  fn scratch() {
-    let bad_report = Report { levels: vec![52, 47, 49, 46, 43, 41, 40] };
-    assert!(bad_report.is_safe_part_2() == false);
-  }
 }
 
 #[cfg(test)]
