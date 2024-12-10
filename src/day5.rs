@@ -7,37 +7,81 @@ pub fn part1(input: &str) -> i32 {
   let rule_and_print_orders = parse_input(input);
 
   for print_order in rule_and_print_orders.print_orders {
-    let print_order_middle_value = print_order.get_middle_value();
-    let print_order_pages_set: HashSet<i32> = HashSet::from_iter(print_order.original_order.iter().cloned());
-    let mut bad_print_order = false;
-    let mut visited_page_numbers: HashSet<i32> = HashSet::new();
-    for page_number in print_order.original_order {
-      if let Some(rule) = rule_and_print_orders.rules.get(&page_number) {
-        for page_number_after in &rule.pages_after {
-          if visited_page_numbers.contains(page_number_after) {
-            // Exit early if the page is supposed to be after but appears before
-            bad_print_order = true;
-            break;
-          }
-        }
-
-        for page_number_before in &rule.pages_before {
-          if !visited_page_numbers.contains(page_number_before) && print_order_pages_set.contains(page_number_before) {
-            // Exit early if the page is supposed to appear before but appears after
-            bad_print_order = true;
-            break;
-          }
-        }
-      };
-      visited_page_numbers.insert(page_number);
-    }
-    if !bad_print_order {
-      total += print_order_middle_value;
+    if is_print_order_correct(&print_order.original_order, &rule_and_print_orders.rules) {
+      total += print_order.get_middle_value();
     }
   }
 
-  // Too high: 10311
   total
+}
+
+#[aoc(day5, part2, Chars)]
+pub fn part2(input: &str) -> i32 {
+  let mut total = 0i32;
+  let rule_and_print_orders = parse_input(input);
+
+  for print_order in rule_and_print_orders.print_orders {
+    if !is_print_order_correct(&print_order.original_order, &rule_and_print_orders.rules) {
+      let corrected_print_order = build_correct_order_from_rules(&rule_and_print_orders.rules, &print_order);
+      total += corrected_print_order.get_middle_value();
+    }
+  }
+
+  total
+}
+
+fn build_correct_order_from_rules(rules: &HashMap<i32, Rule>, print_order: &PrintOrder) -> PrintOrder {
+  let mut corrected_order: Vec<i32> = print_order.original_order.clone();
+
+  while !is_print_order_correct(&corrected_order, rules) {
+    let swapped = false;
+    for i in 0..corrected_order.len() {
+      if swapped {
+        break;
+      }
+      let page_number = corrected_order[i];
+      for j in (i + 1)..corrected_order.len() {
+        if swapped {
+          break;
+        }
+        let page_number_after = corrected_order[j];
+        if let Some(rule) = rules.get(&page_number) {
+          if rule.pages_before.contains(&page_number_after) {
+            corrected_order.swap(i, j);
+          }
+        }
+      }
+    }
+  }
+
+  PrintOrder {
+    original_order: corrected_order
+  }
+}
+
+fn is_print_order_correct(print_order: &Vec<i32>, rules: &HashMap<i32, Rule>) -> bool {
+  let print_order_pages_set: HashSet<i32> = HashSet::from_iter(print_order.iter().cloned());
+  let mut visited_page_numbers: HashSet<i32> = HashSet::new();
+  for page_number in print_order {
+    if let Some(rule) = rules.get(&page_number) {
+      for page_number_after in &rule.pages_after {
+        if visited_page_numbers.contains(page_number_after) {
+          // Exit early if the page is supposed to be after but appears before
+          return false;
+        }
+      }
+
+      for page_number_before in &rule.pages_before {
+        if !visited_page_numbers.contains(page_number_before) && print_order_pages_set.contains(page_number_before) {
+          // Exit early if the page is supposed to appear before but appears after
+          return false;
+        }
+      }
+    };
+    visited_page_numbers.insert(page_number.clone());
+  }
+
+  true
 }
 
 struct RulesAndPrintOrders {
@@ -267,5 +311,81 @@ mod part1_tests {
     let result = part1(input);
 
     assert_eq!(result, 143);
+  }
+}
+
+#[cfg(test)]
+mod build_correct_order_from_rules_tests {
+  use super::*;
+
+  #[test]
+  fn build_correct_order_from_rules_test() {
+    let rules = HashMap::from([
+      (1, Rule {
+        pages_before: vec![],
+        pages_after: vec![2],
+      }),
+      (2, Rule {
+        pages_before: vec![1],
+        pages_after: vec![3],
+      }),
+      (3, Rule {
+        pages_before: vec![2],
+        pages_after: vec![4],
+      }),
+      (4, Rule {
+        pages_before: vec![3],
+        pages_after: vec![5],
+      }),
+      (5, Rule {
+        pages_before: vec![4],
+        pages_after: vec![],
+      }),
+    ]);
+    let print_order = PrintOrder {
+      original_order: vec![5, 3, 4, 1, 2],
+    };
+
+    assert_eq!(build_correct_order_from_rules(&rules, &print_order).original_order, vec![1, 2, 3, 4, 5]);
+  }
+
+  #[test]
+  fn from_real_data_set() {
+    let rules = HashMap::from([
+      (37, Rule {
+        pages_before: vec![47, 65],
+        pages_after: vec![75, 61, 87],
+      }),
+      (75, Rule {
+        pages_before: vec![37, 47, 65],
+        pages_after: vec![31, 61, 87],
+      }),
+      (61, Rule {
+        pages_before: vec![37, 65, 47, 75],
+        pages_after: vec![31, 87],
+      }),
+      (65, Rule {
+        pages_before: vec![],
+        pages_after: vec![31, 37, 47, 61, 75, 87],
+      }),
+      (31, Rule {
+        pages_before: vec![47, 61, 65, 75, 87],
+        pages_after: vec![],
+      }),
+      (47, Rule {
+        pages_before: vec![65],
+        pages_after: vec![31, 37, 61, 75, 87],
+      }),
+      (87, Rule {
+        pages_before: vec![37, 47, 57, 61, 65, 75],
+        pages_after: vec![31],
+      }),
+    ]);
+
+    let print_order = PrintOrder {
+      original_order: vec![37, 75, 61, 65, 31, 47, 87],
+    };
+
+    assert_eq!(build_correct_order_from_rules(&rules, &print_order).original_order, vec![65, 47, 37, 75, 61, 87, 31]);
   }
 }
